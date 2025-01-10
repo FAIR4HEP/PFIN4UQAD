@@ -1,0 +1,15 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Large files
+datasets/
+evaluation/results/
+evaluation/figures/
+evaluation/.ipynb_checkpoints/
+.ipynb_checkpoints/
+
+# Wandb files
+model/wandb/
