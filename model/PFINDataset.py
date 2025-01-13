@@ -199,7 +199,7 @@ class JetClassData(Data):
 
     
 if __name__ == "__main__":
-    # mydataset = PFINDataset("../datasets/jetnet/test.h5")
+    # mydataset = PFINDataset("../datasets/jetnet/processed/test_0.h5")
     # print(len(mydataset))
     # trainloader = DataLoader(mydataset, batch_size=500, shuffle=False, num_workers=40, pin_memory=True, persistent_workers=True)
     # for i,(d, m, a, l) in enumerate(trainloader):
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     # del mydataset, trainloader
     
     mydataset = JetClassData(batch_size = 5000)
-    mydataset.set_file_names(file_names = ["../datasets/jetclass/val_0.h5", "../datasets/jetclass/val_4.h5"])
+    mydataset.set_file_names(file_names = ["../datasets/jetclass/processed/val_0.h5", "../datasets/jetclass/processed/val_4.h5"])
     print(mydataset.count_data())
     for d,m,a,l in tqdm(mydataset.generate_data()):
         print(d.shape)

@@ -5,7 +5,6 @@ __pycache__/
 *.pyc
 
 # Large files
-datasets/
 evaluation/results/
 evaluation/figures/
 evaluation/.ipynb_checkpoints/
