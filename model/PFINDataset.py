@@ -43,22 +43,6 @@ class Data(object):
         self.file_names = file_names
 
 
-    # def inf_generate_data(self):
-    #     while True:
-    #         try:
-    #             for B in self.generate_data():
-    #                 yield B
-    #         except StopIteration:
-    #             print("start over generator loop")
-
-    # def inf_generate_data_keras(self):
-    #     while True:
-    #         try:
-    #             for B, C, _ in self.generate_data():
-    #                 yield [B[2].swapaxes(1, 2), B[3].swapaxes(1, 2)], C
-    #         except StopIteration:
-    #             print("start over generator loop")
-
     def generate_data(self, shuffle=False):
         """Yields batches of training data until none are left."""
         leftovers = None
@@ -199,7 +183,7 @@ class JetClassData(Data):
 
     
 if __name__ == "__main__":
-    # mydataset = PFINDataset("../datasets/jetnet/processed/test_0.h5")
+    # mydataset = PFINDataset("../datasets/jetnet/processed/test.h5")
     # print(len(mydataset))
     # trainloader = DataLoader(mydataset, batch_size=500, shuffle=False, num_workers=40, pin_memory=True, persistent_workers=True)
     # for i,(d, m, a, l) in enumerate(trainloader):

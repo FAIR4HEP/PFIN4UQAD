@@ -9,13 +9,11 @@ from torchinfo import summary
 import torch.nn as nn
 import glob
 import argparse, os, json, sys
-# torch.autograd.set_detect_anomaly(True)
 
 try:
     import wandb
 except ImportError:
     wandb = None
-#wandb = None
 
 def seed_everything(seed: int):
     import random, os
@@ -35,6 +33,7 @@ eps=1e-15
 def LossCE(labels, outs):
     # labels size: (Nb, nclasses) [true values]
     # outs size: (Nb, nclasses) [NN predictions]
+    # return -(labels * torch.log(outs)).sum(1).mean()
     return -(labels * torch.log(outs.clamp(min=eps, max=1-eps))).sum(1).mean()
 
 def getprobs(outs):
@@ -107,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("--use-softmax", action="store_true", dest="use_softmax", default=False, help="Set this flag when using softmax probabilites")
     parser.add_argument("--use-dropout", action="store_true", dest="use_dropout", default=False, help="Set this flag when using dropout layers")
     parser.add_argument('--load-json', type=str, action="store", dest="load_json", default="", help='Load settings from file in json format. Command line options override values in file.')
-    parser.add_argument('--ndata', type=int, action="store", dest="ndata", default=0, help='Only for jetclass data- number of data files (1 file = 1M jets')
+    parser.add_argument('--ndata', type=int, action="store", dest="ndata", default=20, help='Only for jetclass data- number of data files (1 file = 1M jets)')
     
     args = parser.parse_args()
     
@@ -157,15 +156,15 @@ if __name__ == "__main__":
 
 
     #Loading training and validation datasets
-
-    features = 3
-
+    
     if args.data_type == 'topdata':
+        features = 3
         Np = 60
         num_classes = 2
         skiplabels = []
         label_indices = [0,1]
     elif args.data_type == 'jetnet':
+        features = 3
         Np = 30
         if args.skiplabels:
             skiplabels = list(map(int, args.skiplabels.strip().split(',')))
@@ -173,14 +172,6 @@ if __name__ == "__main__":
             skiplabels = []
         num_classes = 5 - len(skiplabels)
         label_indices = [i for i in range(5) if i not in skiplabels]
-    elif args.data_type == 'JNqgmerged':
-        Np = 30
-        if args.skiplabels:
-            skiplabels = list(map(int, args.skiplabels.strip().split(',')))
-        else:
-            skiplabels = []
-        num_classes = 4 - len(skiplabels)
-        label_indices = [i for i in range(4) if i not in skiplabels]
     elif args.data_type == 'jetclass':
         features = 11
         Np = 60
@@ -190,7 +181,9 @@ if __name__ == "__main__":
             skiplabels = []
         num_classes = 10 - len(skiplabels)
         label_indices = [i for i in range(10) if i not in skiplabels]
-        
+    else:
+        raise ValueError(f"Unsupported data_type '{args.data_type}'. Expected one of 'topdata', 'jetnet', or 'jetclass'.")
+    
 
     model = Model(particle_feats = features,
                   n_consts = Np,
@@ -221,9 +214,9 @@ if __name__ == "__main__":
         model.load_state_dict(model_checkpoint)
 
 
-    if args.data_type in ['topdata', 'jetnet', 'JNqgmerged']:
-        train_path = args.data_loc + '/' + args.data_type + '/train.h5'
-        val_path   = args.data_loc + '/' + args.data_type + '/val.h5'
+    if args.data_type in ['topdata', 'jetnet']:
+        train_path = args.data_loc + '/' + args.data_type + 'processed/train.h5'
+        val_path   = args.data_loc + '/' + args.data_type + 'processed/val.h5'
         train_set = PFINDataset(train_path)
         val_set = PFINDataset(val_path) 
         trainloader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, 
@@ -234,13 +227,13 @@ if __name__ == "__main__":
         assert args.ndata != 0, "--ndata should not be 0"
         train_DS = JetClassData(batch_size = args.batch_size)
         val_DS = JetClassData(batch_size = args.batch_size)
-        train_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "train_*.h5"))[0:args.ndata])
-        val_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "val_*.h5"))[0:2])
+        train_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/train_*.h5"))[0:args.ndata])
+        val_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/val_*.h5"))[0:2])
 
 
     opt = torch.optim.Adam(model.parameters(),  lr=l_rate, weight_decay=opt_weight_decay)
-    if args.data_type == 'jetclass':
-        scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[10, 20], gamma=0.1)
+    if not args.use_softmax and args.data_type == 'jetclass':
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[epochs//3, 2*epochs//3], gamma=0.1)
 
     m_logic, (m1, m2) = args.massrange.strip().split(':')[0], list(map(float, args.massrange.strip().split(':')[1].split(',')))
     pt_logic, (pt1, pt2) = args.ptrange.strip().split(':')[0], list(map(float, args.ptrange.strip().split(':')[1].split(',')))
@@ -273,7 +266,9 @@ if __name__ == "__main__":
         print('Epoch ' + str(epoch))
         l = min(1.0, epoch/10.)
         if "nominal" in args.klcoef:
-            if '_' in args.klcoef:
+            if 'slope' in args.klcoef:
+                l = min(float(args.klcoef.split('_')[1]), epoch * float(args.klcoef.split('_')[3]))
+            elif '_' in args.klcoef:
                 l = min(float(args.klcoef.split('_')[1]), epoch/10.)
             else:
                 l = min(1.0, epoch/10.)
@@ -283,32 +278,29 @@ if __name__ == "__main__":
         train_loss_total = 0
         train_acc_total = 0
         val_acc_total = 0
+        mse_loss_total = 0
+        kldiv_loss_total = 0
 
         #train loop
 
         model.train()
         ntrain = 0
         for x,m,a,y in tqdm(trainloader, disable=args.batchmode):
-            
-
             if m_logic == 'AND':
                 keep_masses = (a[:, 1] > min(m1,m2)) & (a[:, 1] < max(m1,m2))
             else:
                 keep_masses = (a[:, 1] < min(m1,m2)) | (a[:, 1] > max(m1,m2))
 
-
             if pt_logic == 'AND':
                 keep_pts = (a[:, 2] > min(pt1,pt2)) & (a[:, 2] < max(pt1,pt2))
             else:
                 keep_pts = (a[:, 2] < min(pt1,pt2)) | (a[:, 2] > max(pt1,pt2))
-
                 
             if eta_logic == 'AND':
                 keep_etas = (a[:, 3] > min(eta1,eta2)) & (a[:, 3] < max(eta1,eta2))
             else:
                 keep_etas = (a[:, 3] < min(eta1,eta2)) | (a[:, 3] > max(eta1,eta2))
 
-            
             keep_labels = torch.tensor(np.isin(np.argmax(y.cpu().numpy(), 1), skiplabels, invert=True)).bool()
             
             keep = (keep_masses & keep_pts & keep_etas & keep_labels).bool()
@@ -328,14 +320,22 @@ if __name__ == "__main__":
 
             if args.use_softmax:
                 loss = LossCE(y, pred)
+                mse_loss = LossCE(y, pred)
             elif args.klcoef == "0" or l == 0.:
                 loss = LossMSE(y, pred)
+                mse_loss = LossMSE(y, pred)
             elif "nominal" in args.klcoef:
                 loss = LossMSE(y, pred) + l * KLDiv(y, pred)
+                mse_loss = LossMSE(y, pred)
             else:
                 loss = LossMSE(y, pred) + float(args.klcoef)*KLDiv(y, pred)
+                mse_loss = LossMSE(y, pred)
+
+            kldiv_loss = KLDiv(y, pred)
 
             train_loss_total += loss.item()
+            mse_loss_total += mse_loss.item()
+            kldiv_loss_total += kldiv_loss.item()
 
             with torch.no_grad():
                 if args.use_softmax:
@@ -416,6 +416,8 @@ if __name__ == "__main__":
         val_loss_total /= nval #len(val_set)
         val_acc_total /= nval #len(val_set)
         train_acc_total /= ntrain #len(train_set)
+        mse_loss_total /= ntrain #len(train_set)
+        kldiv_loss_total /= ntrain #len(train_set)
 
         if epoch == epochs - 1:
             print(pred[:20,:].cpu().numpy())
@@ -431,14 +433,42 @@ if __name__ == "__main__":
 
         # Early stopping after at least  nepochs//4
         if wandb:
-            wandb.log(
+            if args.use_softmax or args.klcoef == "0" or l == 0.:
+                wandb.log(
                 {
                     'Train loss': train_loss_total,
                     'Train accuracy': train_acc_total,
                     'Validation loss': val_loss_total,
                     'Validation accuracy': val_acc_total,
+                    # 'Non EDL Loss': mse_loss_total,
+                    # 'EDL Loss': kldiv_loss_total,
+                    # 'KL Coef': l,
                 }
-            )
+                )
+            elif "nominal" in args.klcoef:
+                wandb.log(
+                {
+                    'Train loss': train_loss_total,
+                    'Train accuracy': train_acc_total,
+                    'Validation loss': val_loss_total,
+                    'Validation accuracy': val_acc_total,
+                    'Non EDL Loss': mse_loss_total,
+                    'EDL Loss': kldiv_loss_total,
+                    'KL Coef': l,
+                }
+                )
+            else:
+                wandb.log(
+                {
+                    'Train loss': train_loss_total,
+                    'Train accuracy': train_acc_total,
+                    'Validation loss': val_loss_total,
+                    'Validation accuracy': val_acc_total,
+                    'Non EDL Loss': mse_loss_total,
+                    'EDL Loss': kldiv_loss_total,
+                    'KL Coef': float(args.klcoef),
+                }
+                )
         if early_stopping and epoch >= min_epoch_early_stopping:
             if abs(pre_val_acc - val_acc_total) < tolerance and abs(best_val_acc - val_acc_total) < tolerance:
                 no_change+=1
@@ -469,7 +499,7 @@ if __name__ == "__main__":
                           F_sizes   = list(map(int, args.f_nodes.split(',')))).to(device)
             opt = torch.optim.Adam(model.parameters(),  lr=l_rate, weight_decay=opt_weight_decay)
             if not args.use_softmax and args.data_type == 'jetclass':
-                scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[10, 20], gamma=0.1)
+                scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, milestones=[epochs//3, 2*epochs//3], gamma=0.1)
             restart_count += 1
             epoch = 0
             best_val_acc = 0
@@ -487,7 +517,7 @@ if __name__ == "__main__":
 
         pre_val_acc = val_acc_total
         epoch += 1
-        if not args.use_softmax and args.data_type == 'jetclass':
+        if args.klcoef != "0" and not args.use_softmax and args.data_type == 'jetclass':
             scheduler.step()
 
     print('Saving last model')

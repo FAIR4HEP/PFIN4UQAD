@@ -32,7 +32,9 @@ def fgamma(x):
 class LossCE(nn.Module):
     def __init__(self):
         super(LossCE, self).__init__()
+        # self.eps=1e-15
     def forward(self, labels, outs):
+        # return -(labels * torch.log(outs.clamp(min=eps, max=1-eps))).sum(1).mean()
         return -(labels * torch.log(outs)).sum(1).mean()
 
     
@@ -179,8 +181,8 @@ def train(gpu, args):
 
     ## loading data
     if args.data_type in ['topdata', 'jetnet']:
-        train_path = args.data_loc + '/' + args.data_type + '/train.h5'
-        val_path   = args.data_loc + '/' + args.data_type + '/val.h5'
+        train_path = args.data_loc + '/' + args.data_type + 'processed/train.h5'
+        val_path   = args.data_loc + '/' + args.data_type + 'processed/val.h5'
         train_set = PFINDataset(train_path)
         val_set = PFINDataset(val_path)
         sampler = torch.utils.data.distributed.DistributedSampler(train_set)
@@ -190,10 +192,11 @@ def train(gpu, args):
         val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=True, 
                                 num_workers=4, pin_memory=True, persistent_workers=True)
     else:
+        assert args.ndata != 0, "--ndata should not be 0"
         train_DS = JetClassData(batch_size = args.batch_size)
         val_DS = JetClassData(batch_size = args.batch_size)
-        all_train_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "train_*.h5")))[0:args.ndata_per_gpu*args.world_size]
-        all_val_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "val_*.h5")))[0:2]
+        all_train_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/train_*.h5")))[0:args.ndata_per_gpu*args.world_size]
+        all_val_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/val_*.h5")))[0:2]
         Nfiles_per_gpu = len(all_train_files) // args.world_size
         train_DS.set_file_names(file_names = all_train_files[rank*Nfiles_per_gpu:(rank+1)*Nfiles_per_gpu])
         val_DS.set_file_names(file_names = all_val_files)
@@ -246,6 +249,15 @@ def train(gpu, args):
             trainloader = train_DS.generate_data()
             val_loader = val_DS.generate_data()
         l = min(1.0, epoch/10.)
+        if "nominal" in args.klcoef:
+            if 'slope' in args.klcoef:
+                l = min(float(args.klcoef.split('_')[1]), epoch * float(args.klcoef.split('_')[3]))
+            elif '_' in args.klcoef:
+                l = min(float(args.klcoef.split('_')[1]), epoch/10.)
+            else:
+                l = min(1.0, epoch/10.)
+        if rank == 0 and "nominal" in args.klcoef:
+            print("L = {}".format(l))
         val_loss_total = 0
         train_loss_total = 0
         train_acc_total = 0
@@ -456,6 +468,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch-mode", action="store_true", dest="batchmode", default=False, help="Set this flag when running in batch mode to suppress tqdm progress bars")
     parser.add_argument("--use-softmax", action="store_true", dest="use_softmax", default=False, help="Set this flag when using softmax probabilites")
     parser.add_argument("--use-dropout", action="store_true", dest="use_dropout", default=False, help="Set this flag when using dropout layers")
+    parser.add_argument('--load-json', type=str, action="store", dest="load_json", default="", help='Load settings from file in json format. Command line options override values in file.')
     parser.add_argument('--ndata-per-gpu', default=1, type=int, help='Only for jetclass data- number of data files per gpu (1 file = 1M jets')
     parser.add_argument('--nodes', default=1, type=int, help='Number of nodes (do not change it yet)')
     parser.add_argument('--gpus', default=1, type=int, help='number of gpus per node')
@@ -464,8 +477,14 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=42, type=int, help='Random seed')
     
     
-    
     args = parser.parse_args()
+    
+    if args.load_json:
+        with open(args.load_json, 'rt') as f:
+            t_args = argparse.Namespace()
+            t_args.__dict__.update(json.load(f))
+            args = parser.parse_args(namespace=t_args)
+    
     args.world_size = args.gpus * args.nodes
     os.environ['MASTER_ADDR'] = args.IP
     os.environ['MASTER_PORT'] = '8888'
@@ -482,6 +501,8 @@ if __name__ == "__main__":
     args.extra_name = extra_name
     model_dict = {}
     for arg in vars(args):
+        if arg == 'load_json':
+            continue
         model_dict[arg] = getattr(args, arg)
     f_model = open("{}/UQPFIN{}.json".format(args.outdictdir, extra_name), "w")
     json.dump(model_dict, f_model, indent=3)
