@@ -1,6 +1,6 @@
 # PFIN4UQAD
 
-This repository contains the necessary code and documents the results of (...).
+This repository contains the necessary code and documents the results of examining the performance of evidential deep learning (EDL) for uncertainty quantification (UQ) and out-of-distribution detection (OOD) jet identification. We utilize the `Particle Flow Interaction Network (PFIN)` model from our [previous paper](https://dx.doi.org/10.1088/2632-2153/ace0a1). The architecture and implementation of EDL for classification is first reviewed and compared in the paper titled **Evidential Deep Learning to Quantify Classification Uncertainty** (DOI: https://dx.doi.org/10.48550/arXiv.1806.01768).
 
 # Preparing the repository
 To train/retrain models and run the notebooks provided with this repository, one needs to create the right environment and install certain dependencies. First `cd` to the project's top directory and do
@@ -22,9 +22,9 @@ This repository provides scripts to download and prepare the datasets used in ou
 
 - **TopData**: Used in the study **Deep-learned Top Tagging with a Lorentz Layer** by Butter et al (DOI: http://dx.doi.org/10.21468/SciPostPhys.5.3.028).
 - **JetNet**: Used in the study **Particle Cloud Generation with Message Passing Generative Adversarial Networks** by Kansal et al (DOI: 
-https://doi.org/10.48550/arXiv.2106.11535).
+https://dx.doi.org/10.48550/arXiv.2106.11535).
 - **JetClass**: Used in the study **Particle Transformer for Jet Tagging** by Qu et al (DOI: 
-https://doi.org/10.48550/arXiv.2202.03772).
+https://dx.doi.org/10.48550/arXiv.2202.03772).
 
 
 ### TopData
