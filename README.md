@@ -121,4 +121,4 @@ or use the following `bibtex` entry-
 
 
 # Contact:
-For comments, feedback, and suggestions: Avik Roy (avroy@illinois.edu) and Ayush Khot (akhot2@illinois.edu)
+For comments, feedback, and suggestions: Mark Neubauer (msn@illinois.edu) and Ayush Khot (akhot2@illinois.edu)
