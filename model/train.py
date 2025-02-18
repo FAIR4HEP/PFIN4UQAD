@@ -215,8 +215,8 @@ if __name__ == "__main__":
 
 
     if args.data_type in ['topdata', 'jetnet']:
-        train_path = args.data_loc + '/' + args.data_type + 'processed/train.h5'
-        val_path   = args.data_loc + '/' + args.data_type + 'processed/val.h5'
+        train_path = args.data_loc + '/' + args.data_type + '/processed/train.h5'
+        val_path   = args.data_loc + '/' + args.data_type + '/processed/val.h5'
         train_set = PFINDataset(train_path)
         val_set = PFINDataset(val_path) 
         trainloader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, 
@@ -227,8 +227,8 @@ if __name__ == "__main__":
         assert args.ndata != 0, "--ndata should not be 0"
         train_DS = JetClassData(batch_size = args.batch_size)
         val_DS = JetClassData(batch_size = args.batch_size)
-        train_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/train_*.h5"))[0:args.ndata])
-        val_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/val_*.h5"))[0:2])
+        train_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "/processed/train_*.h5"))[0:args.ndata])
+        val_DS.set_file_names(file_names = glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "/processed/val_*.h5"))[0:2])
 
 
     opt = torch.optim.Adam(model.parameters(),  lr=l_rate, weight_decay=opt_weight_decay)
