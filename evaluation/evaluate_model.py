@@ -102,13 +102,13 @@ if __name__ == "__main__":
     assert answer, "Stopping evaluation"
     
     if dataset != 'jetclass':
-        test_path = os.path.join(args.data_loc, dataset, "test.h5")
+        test_path = os.path.join(args.data_loc, dataset, "processed", "test.h5")
         #Loading testing dataset
         test_set = PFINDataset(test_path)
         if args.model_type == "edl":
             testloader = DataLoader(test_set, shuffle=False, batch_size=512, num_workers=1, pin_memory=True, persistent_workers=True)
     else:
-        data_path = glob.glob(os.path.join(args.data_loc, "jetclass", "test_*.h5"))
+        data_path = glob.glob(os.path.join(args.data_loc, "jetclass", "processed", "test_*.h5"))
         test_set = JetClassData(batch_size = 512)
         test_set.set_file_names(file_names = data_path)
     
