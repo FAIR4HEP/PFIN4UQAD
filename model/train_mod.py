@@ -181,8 +181,8 @@ def train(gpu, args):
 
     ## loading data
     if args.data_type in ['topdata', 'jetnet']:
-        train_path = args.data_loc + '/' + args.data_type + 'processed/train.h5'
-        val_path   = args.data_loc + '/' + args.data_type + 'processed/val.h5'
+        train_path = args.data_loc + '/' + args.data_type + '/processed/train.h5'
+        val_path   = args.data_loc + '/' + args.data_type + '/processed/val.h5'
         train_set = PFINDataset(train_path)
         val_set = PFINDataset(val_path)
         sampler = torch.utils.data.distributed.DistributedSampler(train_set)
@@ -195,8 +195,8 @@ def train(gpu, args):
         assert args.ndata != 0, "--ndata should not be 0"
         train_DS = JetClassData(batch_size = args.batch_size)
         val_DS = JetClassData(batch_size = args.batch_size)
-        all_train_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/train_*.h5")))[0:args.ndata_per_gpu*args.world_size]
-        all_val_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "processed/val_*.h5")))[0:2]
+        all_train_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "/processed/train_*.h5")))[0:args.ndata_per_gpu*args.world_size]
+        all_val_files = sorted(glob.glob(os.path.join(args.data_loc + '/' + args.data_type, "/processed/val_*.h5")))[0:2]
         Nfiles_per_gpu = len(all_train_files) // args.world_size
         train_DS.set_file_names(file_names = all_train_files[rank*Nfiles_per_gpu:(rank+1)*Nfiles_per_gpu])
         val_DS.set_file_names(file_names = all_val_files)
